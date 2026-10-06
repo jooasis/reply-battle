@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>답장 배틀</title>
+<style>
+:root{color-scheme:light;--bg:#b7cad9;--bar:#a6bccd;--fg:#161616;--mute:#4d6070;--them:#fff;--me:#fee500;--line:#8aa3b6;--accent:#0b6ca5;--win:#e8a200}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px -apple-system,BlinkMacSystemFont,"Noto Sans KR","Malgun Gothic",sans-serif;line-height:1.45}
+.w{max-width:560px;margin:auto;padding:0 16px 24px;display:flex;flex-direction:column;gap:12px}.top{position:sticky;top:0;background:var(--bar);margin:0 -16px;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;z-index:2}.top b{font-size:1.05rem}
+button,input,select{font:inherit}select,input[type=text]{background:var(--them);border:1px solid var(--line);border-radius:10px;padding:9px 10px;min-width:0}button{background:var(--them);border:1px solid var(--line);border-radius:10px;padding:8px 12px;cursor:pointer}button.p{background:var(--me);border-color:transparent;font-weight:700}
+.date{align-self:center;font-size:.78rem;background:#0004;color:#fff;border-radius:99px;padding:3px 12px}.row{display:flex;gap:8px;align-items:flex-end}.row.me{flex-direction:row-reverse}.av{width:38px;height:38px;border-radius:14px;background:var(--line);display:grid;place-items:center;color:#fff;font-weight:700}.col{display:flex;flex-direction:column;min-width:0}.nm{font-size:.78rem;color:var(--mute);margin-bottom:2px}.bub{max-width:min(78%,360px);padding:9px 12px;border-radius:14px;background:var(--them);word-break:break-word}.me .bub{background:var(--me)}.meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;font-size:.8rem}.meta button{padding:3px 9px;font-size:.8rem}.on{background:var(--accent)!important;color:#fff;border-color:transparent}.win .bub{outline:3px solid var(--win)}
+.pan{background:#ffffffcc;border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px}.pan h2{margin:0;font-size:1rem}.cmp,.ctl{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.cmp input{flex:1 1 200px}.rule{background:var(--win);font-weight:700;border-radius:10px;padding:8px 12px}.hint{font-size:.85rem;color:var(--mute);margin:0}.qrbox{text-align:center;background:white;border-radius:12px;padding:12px}.qrbox img{width:210px;height:210px;image-rendering:auto}.qrgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.qritem{background:white;border-radius:12px;padding:8px;text-align:center}.qritem img{width:130px;height:130px}.student{max-width:560px;margin:auto;padding:18px}.student h1{margin-top:0}.student .big{font-size:1.3rem;font-weight:900}.student input{width:100%;font-size:1.05rem;padding:13px}.student button{width:100%;padding:13px;margin-top:8px}.ok{padding:12px;border-radius:10px;background:#dff3df;font-weight:700}.err{padding:12px;border-radius:10px;background:#ffe0e0;font-weight:700}
+.hidden{display:none!important}
+</style></head><body>
+<div id="student" class="student hidden">
+  <h1>답장 배틀</h1>
+  <div class="big" id="sg"></div>
+  <p>상대를 탓하지 않고 근거를 묻는 한 문장을 입력하세요.</p>
+  <input id="stx" maxlength="80" placeholder="답장 한 문장">
+  <button class="p" id="sendStudent">답장 보내기</button>
+  <div id="studentMsg"></div>
+</div>
+
+<div id="teacher" class="w hidden">
+<div class="top"><b>가족 단톡방 <span style="font-size:.75rem;color:var(--mute)">(수업용 가상 사례)</span></b><span id="status">연결 준비 중</span></div>
+<div class="date" id="dt"></div>
+<div class="row"><div class="av">이</div><div class="col" style="gap:6px"><div class="nm">이모</div><div class="bub">이 주식 이번 주 무조건 오른대</div><div class="bub">지금 안 사면 늦는대, 다들 샀대</div><div class="bub">아는 사람이 확실한 정보래~</div></div></div>
+<div id="chat" style="display:flex;flex-direction:column;gap:12px"></div>
+
+<div class="pan"><h2>조별 QR코드</h2><p class="hint">각 조가 자기 조 QR을 휴대폰으로 찍으면 바로 해당 조 입력 화면이 열립니다.</p><div id="qrs" class="qrgrid"></div></div>
+
+<div class="pan"><h2>투표와 점수</h2>
+<div class="ctl"><button id="vm">투표 열기</button><button id="rv" class="p">결과 공개</button><label><input type="checkbox" id="x2"> 점수 2배</label><label><input type="checkbox" id="an" checked> 조 이름 숨기기</label></div>
+<div class="rule" id="rl" hidden>자기 조 답장에는 투표할 수 없습니다.</div><p class="hint" id="vh">답장이 모이면 “투표 열기”를 누르세요.</p><ol id="res" style="display:none"></ol></div>
+<div class="ctl"><button id="clear">답장 모두 지우기</button></div>
+</div>
+
+<script>
+/* ===== 설정 =====
+  1) 아래 API_URL에 배포한 Google Apps Script 웹앱 주소를 넣으세요.
+  2) 이 HTML도 인터넷에서 열 수 있는 주소에 올려야 휴대폰 QR이 작동합니다.
+*/
+const API_URL="https://script.google.com/macros/s/AKfycbz-K_JPmTR9ejlqPxnssJzWW1q8kNXj4BL8M0qS-70rO6xT4VchKIpf99CkRdph9Ng/exec";
+const GROUPS=[1,2,3,4,5,6];
+const KEY="replyBattleLocal";
+let S={r:{},vote:false,show:false,an:true,x2:false};
+
+function api(action,data={}){
+  const url=API_URL+"?action="+encodeURIComponent(action)+"&data="+encodeURIComponent(JSON.stringify(data));
+  return fetch(url,{cache:"no-store"}).then(r=>r.json());
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function calc(){let ks=Object.keys(S.r),m=0;ks.forEach(k=>m=Math.max(m,S.r[k].v||0));return {win:ks.filter(k=>m>0&&(S.r[k].v||0)==m),m}}
+function draw(){
+ document.getElementById("dt").textContent=new Date().toLocaleDateString("ko-KR",{month:"long",day:"numeric",weekday:"long"});
+ let c=calc(),h="",ks=Object.keys(S.r).sort((a,b)=>(S.r[a].n||0)-(S.r[b].n||0)),hide=S.an&&!S.show;
+ ks.forEach((k,i)=>{let r=S.r[k],w=S.show&&c.win.includes(k),lab=hide?"익명 "+(i+1):k;
+ h+=`<div class="row me ${w?"win":""}"><div class="col"><div class="nm">${lab}</div><div class="bub">${esc(r.t)}</div><div class="meta">`;
+ if(S.vote)h+=`<button data-v="${k}">${hide?lab+" ":""}표 +1</button>${S.show?`<b>${r.v||0}표</b>`:""}`;
+ h+=`<button data-b="${k}" class="${r.b?"on":""}">근거 질문 ${r.b?"✓":""}</button></div></div></div>`});
+ document.getElementById("chat").innerHTML=h;
+ document.getElementById("vm").textContent=S.vote?"투표 닫기":"투표 열기";document.getElementById("rl").hidden=!S.vote;
+ document.getElementById("x2").checked=!!S.x2;document.getElementById("an").checked=!!S.an;
+ let res=document.getElementById("res");res.style.display=S.show?"block":"none";
+ if(S.show){let o="";if(c.win.length)c.win.forEach(k=>o+=`<li><b>${k}</b> 최다 득표 ${c.m}표 → 조원 전원 +${S.x2?6:3}점</li>`);else o="<li>아직 표가 없습니다.</li>";Object.keys(S.r).sort().forEach(k=>{if(S.r[k].b)o+=`<li><b>${k}</b> 근거 질문 보너스 → 조원 전원 +${S.x2?2:1}점</li>`});if(c.win.length>1)o+="<li>동점이면 공동 1위입니다.</li>";res.innerHTML=o}
+ document.querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>{S.r[b.dataset.v].v=(S.r[b.dataset.v].v||0)+1;save();draw()});
+ document.querySelectorAll("[data-b]").forEach(b=>b.onclick=()=>{S.r[b.dataset.b].b=!S.r[b.dataset.b].b;save();draw()});
+}
+function save(){localStorage.setItem(KEY,JSON.stringify(S))}
+function makeQR(){
+ const base=location.href.split("?")[0].split("#")[0];
+ document.getElementById("qrs").innerHTML=GROUPS.map(g=>{
+   const u=base+"?mode=student&group="+g;
+   const qr="https://quickchart.io/qr?size=220&text="+encodeURIComponent(u);
+   return `<div class="qritem"><b>${g}조</b><br><img src="${qr}" alt="${g}조 QR"><br><small>휴대폰으로 스캔</small></div>`;
+ }).join("");
+}
+async function refresh(){
+ try{
+   const d=await api("list");
+   if(d.ok){S.r=d.rows||{};document.getElementById("status").textContent="● 연결됨";draw()}
+ }catch(e){document.getElementById("status").textContent="연결 실패"}
+}
+async function studentSend(){
+ const g=new URLSearchParams(location.search).get("group"),t=document.getElementById("stx").value.trim(),m=document.getElementById("studentMsg");
+ if(!t)return m.innerHTML='<div class="err">답장을 입력하세요.</div>';
+ try{let d=await api("submit",{group:g,text:t});if(d.ok){m.innerHTML='<div class="ok">답장이 전송되었습니다!</div>';document.getElementById("stx").value=""}else m.innerHTML='<div class="err">'+esc(d.error||"전송에 실패했습니다.")+"</div>"}catch(e){m.innerHTML='<div class="err">인터넷 연결 또는 서버 설정을 확인하세요.</div>'}
+}
+function boot(){
+ const p=new URLSearchParams(location.search);
+ if(p.get("mode")==="student"){
+   document.getElementById("student").classList.remove("hidden");document.getElementById("sg").textContent=p.get("group")+"조";
+   document.getElementById("sendStudent").onclick=studentSend;document.getElementById("stx").onkeydown=e=>{if(e.key==="Enter")studentSend()};return;
+ }
+ document.getElementById("teacher").classList.remove("hidden");makeQR();
+ try{let t=localStorage.getItem(KEY);if(t)S=JSON.parse(t)}catch(e){}
+ draw();refresh();setInterval(refresh,1500);
+ document.getElementById("vm").onclick=()=>{S.vote=!S.vote;save();draw()};
+ document.getElementById("rv").onclick=function(){S.show=!S.show;this.textContent=S.show?"결과 가리기":"결과 공개";save();draw()};
+ document.getElementById("an").onchange=e=>{S.an=e.target.checked;save();draw()};document.getElementById("x2").onchange=e=>{S.x2=e.target.checked;save();draw()};
+ document.getElementById("clear").onclick=async()=>{if(confirm("모든 답장을 지울까요?")){await api("clear");S.r={};save();draw()}};
+}
+boot();
+</script></body></html>
