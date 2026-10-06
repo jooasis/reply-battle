@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>낚시 제목 공장</title>
+<style>
+*{box-sizing:border-box} body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:#f5f7fb;color:#172033}
+.container{max-width:1100px;margin:0 auto;padding:24px}
+.card{background:#fff;border-radius:18px;padding:24px;margin-bottom:18px;box-shadow:0 5px 20px rgba(0,0,0,.07)}
+h1{margin:0 0 8px}.muted{color:#687386}.fact{font-size:20px;font-weight:700;line-height:1.5;padding:18px;background:#f0f4ff;border-radius:14px}
+.timer{font-size:46px;font-weight:800;text-align:center;margin:8px}.danger{color:#d33}
+button{border:0;border-radius:12px;padding:12px 16px;font-size:15px;font-weight:700;cursor:pointer;background:#315efb;color:#fff}
+button.secondary{background:#e9edf5;color:#273247} button.red{background:#d33}
+input{width:100%;padding:14px;border:1px solid #ccd3df;border-radius:12px;font-size:17px;margin:8px 0 12px}
+.notice{padding:14px;border-radius:12px;background:#fff7df}.success{background:#e8f7ed}.error{background:#ffe9e9}
+.title-row{padding:14px;border:1px solid #e1e5ec;border-radius:12px;margin:8px 0;background:#fff}
+.small{font-size:13px}.hidden{display:none!important}
+table{width:100%;border-collapse:collapse}th,td{padding:10px;border-bottom:1px solid #e8ebf0;text-align:left}
+.qrgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}
+.qr{border:1px solid #e1e5ec;border-radius:14px;padding:14px;text-align:center}.qr img{width:150px;height:150px}
+.pill{display:inline-block;padding:5px 9px;border-radius:99px;background:#edf1f8;font-size:12px;margin:2px}
+.tech button{margin:4px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const API_URL = "https://script.google.com/macros/s/AKfycbzg8FnxOpJXJDLAHViW7QupVtMulgEBmdoQkKgMiW8uZPGjS_Uhxqw_wXDgF9_MyFE/exec";
+
+const PEOPLE = [{"id": "P01", "group": "1조", "name": "강태웅"}, {"id": "P02", "group": "1조", "name": "김준영"}, {"id": "P03", "group": "1조", "name": "생캄"}, {"id": "P04", "group": "1조", "name": "염윤호"}, {"id": "P05", "group": "1조", "name": "이정"}, {"id": "P06", "group": "3조", "name": "김동준"}, {"id": "P07", "group": "3조", "name": "이한슬"}, {"id": "P08", "group": "3조", "name": "정상윤"}, {"id": "P09", "group": "3조", "name": "허준"}, {"id": "P10", "group": "4조", "name": "금시영"}, {"id": "P11", "group": "4조", "name": "김민수"}, {"id": "P12", "group": "4조", "name": "김민준"}, {"id": "P13", "group": "4조", "name": "신주환"}, {"id": "P14", "group": "4조", "name": "유지"}, {"id": "P15", "group": "5조", "name": "강소은"}, {"id": "P16", "group": "5조", "name": "권진환"}, {"id": "P17", "group": "5조", "name": "이시영"}, {"id": "P18", "group": "6조", "name": "배윤서"}, {"id": "P19", "group": "6조", "name": "이서준"}, {"id": "P20", "group": "6조", "name": "이설리"}, {"id": "P21", "group": "6조", "name": "최민서"}];
+
+function qs(k){return new URLSearchParams(location.search).get(k)}
+const mode=qs("mode")||"student";
+const pid=qs("pid");
+
+function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+function api(action, data={}){
+  return fetch(API_URL,{
+    method:"POST",
+    headers:{"Content-Type":"text/plain;charset=utf-8"},
+    body:JSON.stringify({action,...data})
+  }).then(r=>r.json());
+}
+function apiGet(action){
+  return fetch(API_URL+"?action="+encodeURIComponent(action)).then(r=>r.json());
+}
+
+let timerEnd=0,timerHandle=null;
+function startTimer(sec=600){
+  timerEnd=Date.now()+sec*1000;
+  localStorage.setItem("najj_timer_end",String(timerEnd));
+  updateTimer();
+  clearInterval(timerHandle); timerHandle=setInterval(updateTimer,250);
+}
+function updateTimer(){
+  const el=document.getElementById("timer");
+  if(!el)return;
+  let remain=Math.max(0,timerEnd-Date.now());
+  let s=Math.ceil(remain/1000),m=Math.floor(s/60),ss=String(s%60).padStart(2,"0");
+  el.textContent=`${m}:${ss}`;
+  if(s<=30)el.classList.add("danger"); else el.classList.remove("danger");
+  if(s<=0)clearInterval(timerHandle);
+}
+
+function studentPage(){
+  const p=PEOPLE.find(x=>x.id===pid);
+  if(!p){
+    document.getElementById("app").innerHTML=`<div class="container"><div class="card"><h1>학생 QR 오류</h1><p>올바른 QR 코드로 접속해 주세요.</p></div></div>`;
+    return;
+  }
+  document.getElementById("app").innerHTML=`
+  <div class="container">
+    <div class="card">
+      <h1>🎣 낚시 제목 공장</h1>
+      <p class="muted">10분 안에 같은 사실을 가장 낚이는 제목으로 바꿔 보세요.</p>
+      <div class="fact">사실: 중앙도서관 대출 가능 권수가 5권에서 7권으로 늘어납니다. <span class="small">(가상 사례)</span></div>
+    </div>
+    <div class="card">
+      <div><span class="pill">${esc(p.group)}</span> <span class="pill">${esc(p.name)}</span></div>
+      <h2>내 제목 제출</h2>
+      <div class="notice">⚠️ <b>한 번 제출하면 바꿀 수 없습니다.</b><br>제출 전에 오탈자와 표현을 꼭 확인하세요.</div>
+      <input id="title" maxlength="120" placeholder="가장 낚이는 제목을 입력하세요">
+      <button id="submitBtn" onclick="submitTitle()">제출하기</button>
+      <div id="msg"></div>
+    </div>
+  </div>`;
+  checkMySubmission();
+}
+async function checkMySubmission(){
+  if(!API_URL.startsWith("http"))return;
+  try{
+    const r=await api("mySubmission",{pid});
+    if(r.submitted){
+      document.getElementById("title").disabled=true;
+      document.getElementById("submitBtn").disabled=true;
+      document.getElementById("submitBtn").style.background="#999";
+      document.getElementById("msg").innerHTML=`<div class="notice success">제출 완료<br><b>${esc(r.title)}</b><br><span class="small">이미 제출했으므로 수정할 수 없습니다.</span></div>`;
+    }
+  }catch(e){}
+}
+async function submitTitle(){
+  const input=document.getElementById("title"), btn=document.getElementById("submitBtn"), msg=document.getElementById("msg");
+  const title=input.value.trim();
+  if(!title){msg.innerHTML='<div class="notice error">제목을 입력해 주세요.</div>';return}
+  btn.disabled=true;
+  try{
+    const r=await api("submit",{pid,title});
+    if(r.ok){
+      input.disabled=true;
+      msg.innerHTML='<div class="notice success">✅ 제출되었습니다.<br><b>한 번 제출한 제목은 수정할 수 없습니다.</b></div>';
+      btn.style.background="#999";
+    }else{
+      btn.disabled=false;
+      msg.innerHTML='<div class="notice error">❌ '+esc(r.message||"제출할 수 없습니다.")+'</div>';
+    }
+  }catch(e){
+    btn.disabled=false;
+    msg.innerHTML='<div class="notice error">서버 연결에 실패했습니다. 선생님 화면의 설정을 확인해 주세요.</div>';
+  }
+}
+
+function teacherPage(){
+  document.getElementById("app").innerHTML=`
+  <div class="container">
+    <div class="card">
+      <h1>🎣 낚시 제목 공장 — 진행자 화면</h1>
+      <p class="muted">참여 인원 21명 · 1조 / 3조 / 4조 / 5조 / 6조 · 2조 제외</p>
+      <div id="timer" class="timer">10:00</div>
+      <button onclick="startTimer(600)">10분 시작 / 재시작</button>
+      <button class="secondary" onclick="loadTeacher()">새로고침</button>
+    </div>
+    <div class="card">
+      <h2>QR 코드</h2>
+      <p class="muted">각 학생은 자기 이름이 적힌 QR로 접속합니다.</p>
+      <div id="qrs" class="qrgrid"></div>
+    </div>
+    <div class="card">
+      <h2>제출 현황 <span id="count"></span></h2>
+      <div id="titles">불러오는 중...</div>
+    </div>
+    <div class="card">
+      <h2>투표 / 점수</h2>
+      <p class="muted">학생 제목을 클릭해 득표를 올립니다. 자기 제목을 투표에서 제외하는 것은 진행자가 확인해 주세요.</p>
+      <div id="voteArea"></div>
+      <h3>기법 맞히기 (+1점)</h3>
+      <p class="small">1위 본인은 참여하지 않습니다. 맞힌 기법만 체크하세요. 같은 기법은 한 번만 인정됩니다.</p>
+      <div class="tech">
+        <button onclick="addTech('숫자')">숫자</button>
+        <button onclick="addTech('감정 자극')">감정 자극</button>
+        <button onclick="addTech('일부 가림')">일부 가림</button>
+        <button onclick="addTech('급박함')">급박함</button>
+      </div>
+      <div id="score"></div>
+    </div>
+  </div>`;
+  renderQRs();
+  loadTeacher();
+  const saved=Number(localStorage.getItem("najj_timer_end")||0);
+  if(saved>Date.now()){timerEnd=saved;clearInterval(timerHandle);timerHandle=setInterval(updateTimer,250);updateTimer();}
+}
+function renderQRs(){
+  const base=location.href.split("?")[0];
+  document.getElementById("qrs").innerHTML=PEOPLE.map(p=>{
+    const url=base+"?mode=student&pid="+encodeURIComponent(p.id);
+    const qr="https://quickchart.io/qr?size=220&text="+encodeURIComponent(url);
+    return `<div class="qr"><b>${esc(p.group)} · ${esc(p.name)}</b><br><img src="${qr}" alt="QR"><br><span class="small">스캔하면 본인 제출 화면</span></div>`;
+  }).join("");
+}
+let latest=[], votes={}, techBonus={};
+async function loadTeacher(){
+  if(!API_URL.startsWith("http")){
+    document.getElementById("titles").innerHTML='<div class="notice">Code.gs를 웹앱으로 배포한 뒤 HTML의 API_URL에 웹앱 주소를 넣어 주세요.</div>';
+    return;
+  }
+  try{
+    const r=await apiGet("list");
+    latest=r.submissions||[];
+    document.getElementById("count").textContent=`(${latest.length}/21)`;
+    document.getElementById("titles").innerHTML=latest.length?latest.map((x,i)=>`
+      <div class="title-row">
+        <b>${i+1}. ${esc(x.title)}</b><br>
+        <span class="small">${esc(x.group)} · ${esc(x.name)}</span>
+      </div>`).join(""):'<p class="muted">아직 제출된 제목이 없습니다.</p>';
+    renderVote();
+  }catch(e){
+    document.getElementById("titles").innerHTML='<div class="notice error">서버에서 제출 현황을 불러오지 못했습니다.</div>';
+  }
+}
+function renderVote(){
+  const arr=latest;
+  document.getElementById("voteArea").innerHTML=arr.length?arr.map(x=>`
+    <div class="title-row">
+      <div><b>${esc(x.title)}</b></div>
+      <div class="small">${esc(x.group)} · ${esc(x.name)} · 현재 ${votes[x.id]||0}표</div>
+      <button onclick="vote('${x.id}')">+1표</button>
+    </div>`).join(""):'<p class="muted">제출 후 투표할 수 있습니다.</p>';
+  renderScore();
+}
+async function vote(id){
+  votes[id]=(votes[id]||0)+1;
+  renderVote();
+}
+function addTech(t){techBonus[t]=(techBonus[t]||0)+1;renderScore();}
+function renderScore(){
+  const gs={};
+  latest.forEach(x=>gs[x.group]=(gs[x.group]||0));
+  const max=Math.max(0,...Object.values(votes));
+  const winners=new Set(latest.filter(x=>(votes[x.id]||0)===max && max>0).map(x=>x.group));
+  winners.forEach(g=>gs[g]=(gs[g]||0)+3);
+  winners.forEach(g=>{
+    const n=latest.filter(x=>x.group===g).length;
+    // 같은 조원 점수는 실제 3명 기준으로 부여. 제출하지 않은 학생은 제출자 명단으로 확인.
+    gs[g]=(gs[g]||0)+Math.min(3,n);
+  });
+  const techSum=Object.values(techBonus).reduce((a,b)=>a+b,0);
+  winners.forEach(g=>gs[g]=(gs[g]||0)+techSum);
+  const rows=Object.entries(gs).sort((a,b)=>b[1]-a[1]);
+  document.getElementById("score").innerHTML=rows.length?`<h3>현재 점수</h3><table><tr><th>조</th><th>점수</th></tr>${rows.map(([g,s])=>`<tr><td>${g}${winners.has(g)?" 🏆":""}</td><td><b>${s}</b></td></tr>`).join("")}</table>`:"";
+}
+if(mode==="teacher")teacherPage(); else studentPage();
+</script>
+</body>
+</html>
