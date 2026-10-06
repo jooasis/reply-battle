@@ -36,8 +36,6 @@ input,select{font:inherit;width:100%;padding:13px;border:1.5px solid var(--line)
 .title-row{padding:12px 14px;border:1.5px solid var(--line);border-radius:12px;margin:8px 0;background:#fff;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
 .title-row .t{flex:1 1 240px;min-width:0;font-weight:700;word-break:break-word}
 .qrbig{display:grid;place-items:center;gap:6px}.qrbig img{width:min(70vw,300px);height:auto;border-radius:12px;border:1.5px solid var(--line);background:#fff}
-.qrgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-top:10px}
-.qr{border:1.5px solid var(--line);border-radius:12px;padding:10px;text-align:center}.qr img{width:130px;height:130px}
 table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left}td.n,th.n{text-align:right}
 .tech{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
 .tech button.used{background:#c8d6df;color:#5a6b7a}
@@ -141,10 +139,9 @@ function teacherPage(){
     <div class="row" style="justify-content:center;margin-top:8px"><button id="t5">5분 시작</button><button class="secondary" id="t10">10분</button><button class="secondary" id="rf">새로고침</button></div></div>
   <div class="card"><div class="head"><span>참가 QR</span><span>하나로 모두 참여</span></div>
     <div class="qrbig"><img id="mainqr" alt="참가 QR"><div class="small muted">찍고 자기 이름을 누르세요</div></div></div></div>
-  <div class="card"><details><summary>개인 QR 21개 보기 (이름이 미리 정해진 QR)</summary><div id="qrs" class="qrgrid"></div></details></div>
   <div class="card"><div class="head"><span>제출 현황 <span id="count"></span></span><span><label class="small"><input type="checkbox" id="hid" checked style="width:auto"> 작성자 숨기기</label></span></div><div id="titles">불러오는 중...</div></div>
   <div class="card"><div class="head"><span>투표와 점수</span><span>손든 수를 세어 입력</span></div>
-    <p class="muted small">제목마다 +1표. 투표자가 자기 제목에는 투표하지 않도록 안내해 주세요.</p>
+    <p class="muted small">진행 순서: ① 번호만 보이는 제목을 함께 읽습니다 ② 내 제목을 뺀 가장 클릭하고 싶은 제목 번호에 손을 듭니다 ③ 세어서 +1표를 누릅니다.</p>
     <div id="voteArea"></div>
     <div class="row"><button id="show">결과 공개</button></div>
     <h2 style="margin-top:14px">기법 맞히기 (+1점)</h2>
@@ -153,7 +150,6 @@ function teacherPage(){
     <div class="tech" id="tech"></div>
     <div id="score"></div></div></div>`;
   $("mainqr").src=qrImg(BASE+"?mode=student",300);
-  $("qrs").innerHTML=PEOPLE.map(p=>`<div class="qr"><b>${esc(p.group)} · ${esc(p.name)}</b><br><img loading="lazy" src="${qrImg(BASE+"?mode=student&pid="+p.id,200)}" alt="${esc(p.name)} QR"></div>`).join("");
   $("t5").onclick=()=>startTimer(300);$("t10").onclick=()=>startTimer(600);$("rf").onclick=loadTeacher;
   $("hid").onchange=e=>{hideAuthor=e.target.checked;renderAll()};
   $("show").onclick=()=>{showResult=!showResult;$("show").textContent=showResult?"결과 가리기":"결과 공개";renderAll()};
