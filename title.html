@@ -40,6 +40,8 @@ table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}th,t
 .tech{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
 .tech button.used{background:#c8d6df;color:#5a6b7a}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:720px){.two{grid-template-columns:1fr}}
+.no{display:inline-block;min-width:28px;text-align:center;padding:2px 8px;border-radius:999px;background:var(--soft);color:var(--ink);font-weight:900;margin-right:8px}
+.title-row.mine{background:#eef9ff}.title-row.pick{border-color:var(--blue);box-shadow:0 0 0 2px var(--blue) inset}.title-row.win{background:#fff4d6;border-color:#e8a200}
 summary{cursor:pointer;font-weight:700;color:var(--ink)}
 </style>
 </head>
@@ -79,40 +81,68 @@ function pickPage(){
     location.href=BASE+"?mode=student&pid="+encodeURIComponent(b.dataset.p);
   });
 }
+let ME=null,ST=null;
 function studentPage(){
   let id=pid;
   if(!id){try{id=localStorage.getItem("najj_pid")}catch(e){}}
   if(!id||qs("pick")){pickPage();return}
-  const p=PEOPLE.find(x=>x.id===id);
-  if(!p){pickPage();return}
-  $("app").innerHTML=`<div class="container">${titleBlock()}
-  <div class="card"><div class="head"><span>내 제목 제출</span><span><span class="pill" style="margin:0">${esc(p.group)} · ${esc(p.name)}</span></span></div>
-  <div class="notice"><b>한 번 제출하면 바꿀 수 없습니다.</b><br>제출 전에 오탈자와 표현을 확인하세요.</div>
-  <input id="title" maxlength="120" placeholder="가장 낚이는 제목을 입력하세요" autocomplete="off">
-  <div class="row" style="margin-top:10px"><button id="submitBtn">제출하기</button><button class="secondary" id="notme">내 이름이 아니에요</button></div>
-  <div id="msg"></div></div></div>`;
-  $("submitBtn").onclick=()=>submitTitle(p.id);
+  ME=PEOPLE.find(x=>x.id===id);
+  if(!ME){pickPage();return}
+  $("app").innerHTML=`<div class="container">${titleBlock()}<div id="main"></div>
+  <p class="small"><button class="secondary" id="notme">내 이름이 아니에요</button></p></div>`;
   $("notme").onclick=()=>{try{localStorage.removeItem("najj_pid")}catch(e){};location.href=BASE+"?mode=student&pick=1"};
-  checkMine(p.id);
+  loadState();setInterval(loadState,3000);
 }
-async function checkMine(id){
-  try{
-    const r=await api("mySubmission",{pid:id});
-    if(r.submitted){
-      $("title").disabled=true;$("submitBtn").disabled=true;$("notme").disabled=true;
-      $("msg").innerHTML=`<div class="notice success">제출 완료<br><b>${esc(r.title)}</b><br><span class="small">이미 제출했으므로 수정할 수 없습니다.</span></div>`;
+async function loadState(){
+  try{ST=await api("state",{pid:ME.id});renderStudent()}
+  catch(e){if(!ST)$("main").innerHTML='<div class="card"><div class="notice error">서버 연결에 실패했습니다. 잠시 뒤 다시 시도해 주세요.</div></div>'}
+}
+function renderStudent(){
+  const m=$("main");
+  if(!ST.ok){m.innerHTML=`<div class="card"><div class="notice error">${esc(ST.message||"오류가 발생했습니다.")}</div></div>`;return}
+  if(!ST.submitted){
+    if(!$("title")){
+      m.innerHTML=`<div class="card"><div class="head"><span>내 제목 제출</span><span><span class="pill" style="margin:0">${esc(ME.group)} · ${esc(ME.name)}</span></span></div>
+      <div class="notice"><b>한 번 제출하면 바꿀 수 없습니다.</b><br>제출 전에 오탈자와 표현을 확인하세요.</div>
+      <input id="title" maxlength="120" placeholder="가장 낚이는 제목을 입력하세요" autocomplete="off">
+      <div class="row" style="margin-top:10px"><button id="submitBtn">제출하기</button></div><div id="msg"></div>
+      <p class="small muted">제출 현황: ${ST.count}/${ST.total}</p></div>`;
+      $("submitBtn").onclick=submitTitle;
     }
-  }catch(e){}
+    return;
+  }
+  const res=ST.phase==="result";
+  const max=Math.max(0,...ST.submissions.map(s=>s.votes||0));
+  const rows=(res?ST.submissions.slice().sort((a,b)=>(b.votes||0)-(a.votes||0)||a.no-b.no):ST.submissions).map(s=>{
+    const mine=s.no===ST.myNo,pick=s.no===ST.myVote,win=res&&max>0&&s.votes===max;
+    let right="";
+    if(res)right=`<b>${s.votes}표</b>`;
+    else if(mine)right='<span class="pill">내 제목</span>';
+    else right=`<button data-vote="${s.no}" ${pick?'class="secondary"':''}>${pick?"✓ 내 선택":"투표"}</button>`;
+    return `<div class="title-row${mine?" mine":""}${pick&&!res?" pick":""}${win?" win":""}"><div class="t"><span class="no">${s.no}</span>${esc(s.title)}${res?` <span class="small muted">${esc(s.group)} · ${esc(s.name)}</span>`:""}</div>${right}</div>`;
+  }).join("");
+  m.innerHTML=`<div class="card"><div class="head"><span>${res?"투표 결과":"제출 현황 · 투표"}</span><span>제출 ${ST.count}/${ST.total} · 투표 ${ST.voters}명</span></div>
+  ${res?'<div class="notice success"><b>결과가 공개되었습니다.</b></div>':'<div class="notice success"><b>제출 완료!</b> 내 제목을 뺀 가장 클릭하고 싶은 제목 <b>1개</b>에 투표하세요. 결과 공개 전에는 다시 눌러 바꿀 수 있습니다.</div>'}
+  <div id="vmsg"></div>${rows||'<p class="muted">아직 제목이 없습니다.</p>'}
+  ${res?"":'<p class="small muted">다른 사람이 제출하면 목록이 자동으로 늘어납니다.</p>'}</div>`;
+  document.querySelectorAll("[data-vote]").forEach(b=>b.onclick=()=>castVote(Number(b.dataset.vote)));
 }
-async function submitTitle(id){
+async function submitTitle(){
   const input=$("title"),btn=$("submitBtn"),msg=$("msg"),title=input.value.trim();
   if(!title){msg.innerHTML='<div class="notice error">제목을 입력해 주세요.</div>';return}
   btn.disabled=true;
   try{
-    const r=await api("submit",{pid:id,title});
-    if(r.ok){input.disabled=true;$("notme").disabled=true;msg.innerHTML='<div class="notice success"><b>제출되었습니다.</b><br>한 번 제출한 제목은 수정할 수 없습니다.</div>'}
+    const r=await api("submit",{pid:ME.id,title});
+    if(r.ok){await loadState()}
     else{btn.disabled=false;msg.innerHTML='<div class="notice error">'+esc(r.message||"제출할 수 없습니다.")+'</div>'}
   }catch(e){btn.disabled=false;msg.innerHTML='<div class="notice error">서버 연결에 실패했습니다. 잠시 뒤 다시 눌러 주세요.</div>'}
+}
+async function castVote(no){
+  try{
+    const r=await api("vote",{pid:ME.id,no});
+    if(!r.ok){const v=$("vmsg");if(v)v.innerHTML='<div class="notice error">'+esc(r.message||"투표할 수 없습니다.")+'</div>'}
+    await loadState();
+  }catch(e){}
 }
 
 /* ---------- 진행자 화면 ---------- */
@@ -129,70 +159,83 @@ function updateTimer(){
   el.classList.toggle("danger",s<=30&&timerEnd>0);
   if(s<=0)clearInterval(timerHandle);
 }
-let latest=[],votes={},techUsed={},techPts={},hideAuthor=true,showResult=false;
+let KEY="",TS=null,techUsed={},techPts={},hideAuthor=true;
 const TECHS=["숫자","감정 자극","일부 가림","급박함"];
 function teacherPage(){
+  KEY=qs("key")||"";
+  if(!KEY){try{KEY=localStorage.getItem("najj_key")||""}catch(e){}}
+  if(!KEY)KEY=prompt("진행자 비밀번호를 입력하세요")||"";
+  try{localStorage.setItem("najj_key",KEY)}catch(e){}
   $("app").innerHTML=`<div class="container wide">
   <h1>낚시 제목 <b>공장</b> · 진행자</h1>
-  <div class="two"><div class="card"><div class="head"><span>타이머</span><span>제목 쓰기 5분</span></div>
+  <div class="two"><div class="card"><div class="head"><span>타이머</span><span>제목 쓰기</span></div>
     <div id="timer" class="timer">5:00</div>
-    <div class="row" style="justify-content:center;margin-top:8px"><button id="t5">5분 시작</button><button class="secondary" id="t10">10분</button><button class="secondary" id="rf">새로고침</button></div></div>
+    <div class="row" style="justify-content:center;margin-top:8px"><button id="t5">5분 시작</button><button class="secondary" id="t10">10분</button></div></div>
   <div class="card"><div class="head"><span>참가 QR</span><span>하나로 모두 참여</span></div>
     <div class="qrbig"><img id="mainqr" alt="참가 QR"><div class="small muted">찍고 자기 이름을 누르세요</div></div></div></div>
-  <div class="card"><div class="head"><span>제출 현황 <span id="count"></span></span><span><label class="small"><input type="checkbox" id="hid" checked style="width:auto"> 작성자 숨기기</label></span></div><div id="titles">불러오는 중...</div></div>
-  <div class="card"><div class="head"><span>투표와 점수</span><span>손든 수를 세어 입력</span></div>
-    <p class="muted small">진행 순서: ① 번호만 보이는 제목을 함께 읽습니다 ② 내 제목을 뺀 가장 클릭하고 싶은 제목 번호에 손을 듭니다 ③ 세어서 +1표를 누릅니다.</p>
-    <div id="voteArea"></div>
-    <div class="row"><button id="show">결과 공개</button></div>
-    <h2 style="margin-top:14px">기법 맞히기 (+1점)</h2>
+  <div class="card"><div class="head"><span>진행 상황</span><span id="count"></span></div>
+    <div class="row"><button id="reveal">결과 공개</button><button class="secondary" id="reopen">투표 다시 열기</button><label class="small"><input type="checkbox" id="hid" checked style="width:auto"> 공개 전 작성자 숨기기</label></div>
+    <div id="msg"></div>
+    <p class="muted small">참여자는 폰에서 제출하고 바로 투표합니다. 진행자는 결과 공개만 누르면 됩니다.</p></div>
+  <div class="card"><div class="head"><span>제목 목록</span><span id="phase"></span></div><div id="titles">불러오는 중...</div></div>
+  <div class="card"><div class="head"><span>기법 맞히기</span><span>+1점</span></div>
     <p class="muted small">1위 본인은 참여할 수 없고, 같은 기법은 한 번만 인정합니다.</p>
     <div class="row"><select id="guesser" style="max-width:260px"></select></div>
-    <div class="tech" id="tech"></div>
-    <div id="score"></div></div></div>`;
+    <div class="tech" id="tech"></div></div>
+  <div class="card"><div class="head"><span>점수</span><span>결과 공개 후 표시</span></div><div id="score"></div></div></div>`;
   $("mainqr").src=qrImg(BASE+"?mode=student",300);
-  $("t5").onclick=()=>startTimer(300);$("t10").onclick=()=>startTimer(600);$("rf").onclick=loadTeacher;
-  $("hid").onchange=e=>{hideAuthor=e.target.checked;renderAll()};
-  $("show").onclick=()=>{showResult=!showResult;$("show").textContent=showResult?"결과 가리기":"결과 공개";renderAll()};
+  $("t5").onclick=()=>startTimer(300);$("t10").onclick=()=>startTimer(600);
+  $("hid").onchange=e=>{hideAuthor=e.target.checked;renderTeacher()};
+  $("reveal").onclick=()=>setPhase("result");$("reopen").onclick=()=>setPhase("open");
   $("guesser").innerHTML=PEOPLE.map(p=>`<option value="${p.id}">${esc(p.group)} ${esc(p.name)}</option>`).join("");
   const saved=Number((()=>{try{return localStorage.getItem("najj_timer_end")}catch(e){return 0}})()||0);
   if(saved>Date.now()){timerEnd=saved;timerHandle=setInterval(updateTimer,250);updateTimer()}
-  loadTeacher();setInterval(loadTeacher,5000);
+  loadTeacher();setInterval(loadTeacher,3000);
+}
+async function setPhase(ph){
+  try{const r=await api("setPhase",{key:KEY,phase:ph});if(!r.ok)$("msg").innerHTML='<div class="notice error">'+esc(r.message)+'</div>';await loadTeacher()}catch(e){}
 }
 async function loadTeacher(){
   try{
-    const r=await apiGet("list");latest=(r.submissions||[]).slice().sort((a,b)=>new Date(a.submittedAt)-new Date(b.submittedAt));
-    $("count").textContent="("+latest.length+"/21)";
-    renderAll();
-  }catch(e){$("titles").innerHTML='<div class="notice error">서버에서 제출 현황을 불러오지 못했습니다.</div>'}
+    const r=await api("teacherState",{key:KEY});
+    if(!r.ok){$("titles").innerHTML='<div class="notice error">'+esc(r.message||"불러오지 못했습니다.")+' (주소 끝에 &key=비밀번호)</div>';return}
+    TS=r;renderTeacher();
+  }catch(e){$("titles").innerHTML='<div class="notice error">서버에서 불러오지 못했습니다.</div>'}
 }
-function who(x){return hideAuthor&&!showResult?"":` <span class="small muted">${esc(x.group)} · ${esc(x.name)}</span>`}
-function renderAll(){
-  $("titles").innerHTML=latest.length?latest.map((x,i)=>`<div class="title-row"><div class="t">${i+1}. ${esc(x.title)}${who(x)}</div></div>`).join(""):'<p class="muted">아직 제출된 제목이 없습니다.</p>';
-  $("voteArea").innerHTML=latest.length?latest.map((x,i)=>`<div class="title-row"><div class="t">${i+1}. ${esc(x.title)}${who(x)}${showResult?` <b>· ${votes[x.id]||0}표</b>`:""}</div><button data-v="${x.id}">+1표</button></div>`).join(""):'<p class="muted">제출 후 투표할 수 있습니다.</p>';
-  document.querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>{votes[b.dataset.v]=(votes[b.dataset.v]||0)+1;renderAll()});
+function renderTeacher(){
+  if(!TS)return;
+  const res=TS.phase==="result";
+  $("count").textContent=`제출 ${TS.count}/${TS.total} · 투표 ${TS.voters}명`;
+  $("phase").textContent=res?"결과 공개됨":"투표 진행 중";
+  $("reveal").disabled=res;$("reopen").disabled=!res;
+  const max=Math.max(0,...TS.submissions.map(s=>s.votes));
+  const list=res?TS.submissions.slice().sort((a,b)=>b.votes-a.votes||a.no-b.no):TS.submissions;
+  $("titles").innerHTML=list.length?list.map(s=>{
+    const win=res&&max>0&&s.votes===max;
+    const who=(res||!hideAuthor)?` <span class="small muted">${esc(s.group)} · ${esc(s.name)}</span>`:"";
+    return `<div class="title-row${win?" win":""}"><div class="t"><span class="no">${s.no}</span>${esc(s.title)}${who}</div>${res?`<b>${s.votes}표</b>`:""}</div>`;
+  }).join(""):'<p class="muted">아직 제출된 제목이 없습니다.</p>';
   $("tech").innerHTML=TECHS.map(t=>`<button data-t="${t}" class="${techUsed[t]?"used":""}">${t}</button>`).join("");
   document.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{
     const t=b.dataset.t;if(techUsed[t])return;
-    const g=$("guesser").value;techUsed[t]=g;techPts[g]=(techPts[g]||0)+1;renderAll()});
-  renderScore();
+    const g=$("guesser").value;techUsed[t]=g;techPts[g]=(techPts[g]||0)+1;renderTeacher()});
+  renderScore(res,max);
 }
-function renderScore(){
-  const fixed={};PEOPLE.forEach(p=>fixed[p.id]=0);
-  const max=Math.max(0,...latest.map(x=>votes[x.id]||0));
-  latest.filter(x=>max>0&&(votes[x.id]||0)===max).forEach(w=>{
-    const wp=PEOPLE.find(p=>p.id===w.id)||PEOPLE.find(p=>p.group===w.group&&p.name===w.name);
-    if(wp)fixed[wp.id]+=3;
-    PEOPLE.filter(p=>p.group===w.group&&(!wp||p.id!==wp.id)).forEach(p=>fixed[p.id]+=1);
+function renderScore(res,max){
+  if(!res){$("score").innerHTML='<p class="muted small">“결과 공개”를 누르면 점수가 보입니다.</p>';return}
+  const pts={};PEOPLE.forEach(p=>pts[p.id]=0);
+  const winners=TS.submissions.filter(s=>max>0&&s.votes===max);
+  winners.forEach(w=>{
+    pts[w.pid]+=3;
+    PEOPLE.filter(p=>p.group===w.group&&p.id!==w.pid).forEach(p=>pts[p.id]+=1);
   });
-  Object.keys(techPts).forEach(id=>fixed[id]+=techPts[id]);
-  const people=PEOPLE.map(p=>({...p,s:fixed[p.id]})).sort((a,b)=>b.s-a.s);
+  Object.keys(techPts).forEach(id=>pts[id]+=techPts[id]);
+  const people=PEOPLE.map(p=>({...p,s:pts[p.id]})).sort((a,b)=>b.s-a.s);
   const gs={};people.forEach(p=>gs[p.group]=(gs[p.group]||0)+p.s);
   const groups=Object.entries(gs).sort((a,b)=>b[1]-a[1]);
-  if(!showResult){$("score").innerHTML='<p class="muted small">“결과 공개”를 누르면 점수가 보입니다.</p>';return}
-  const top=people.filter(p=>p.s>0&&p.s===people[0].s);
   $("score").innerHTML=`<div class="two"><div><h2>조별 합계</h2><table><tr><th>조</th><th class="n">점수</th></tr>${groups.map(([g,s])=>`<tr><td>${esc(g)}</td><td class="n"><b>${s}</b></td></tr>`).join("")}</table></div>
   <div><h2>개인 상위 5</h2><table><tr><th>이름</th><th>조</th><th class="n">점수</th></tr>${people.slice(0,5).map(p=>`<tr><td>${esc(p.name)}</td><td>${esc(p.group)}</td><td class="n"><b>${p.s}</b></td></tr>`).join("")}</table></div></div>
-  ${latest.filter(x=>max>0&&(votes[x.id]||0)===max).length>1?'<p class="muted small">제목 득표가 같으면 공동 1위로 모두 같은 점수를 받습니다.</p>':""}`;
+  ${winners.length>1?'<p class="muted small">득표가 같으면 공동 1위로 모두 같은 점수를 받습니다.</p>':""}`;
 }
 if(mode==="teacher")teacherPage();else studentPage();
 </script>
