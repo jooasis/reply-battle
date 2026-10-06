@@ -160,7 +160,7 @@ function teacherPage(){
 }
 async function loadTeacher(){
   try{
-    const r=await apiGet("list");latest=r.submissions||[];
+    const r=await apiGet("list");latest=(r.submissions||[]).slice().sort((a,b)=>new Date(a.submittedAt)-new Date(b.submittedAt));
     $("count").textContent="("+latest.length+"/21)";
     renderAll();
   }catch(e){$("titles").innerHTML='<div class="notice error">서버에서 제출 현황을 불러오지 못했습니다.</div>'}
